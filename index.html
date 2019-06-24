@@ -1,0 +1,522 @@
+<html>
+	<head>
+		<style>
+			div {
+  			padding-top: 10px;
+  			padding-right:200px;
+  			padding-bottom: 50px;
+  			padding-left: 200px;  
+			align:left;
+			
+			}
+			
+		</style>
+	</head>
+	
+	<body>
+		<center><img src="credit-card.jpg" /></center>
+		<div>
+			<h1><center>Credit Card Fraud Detection</center></h1>
+			<p>
+				Fraud detection has been a major issue for financial services and institutions. With the increase in global transactions, the chances of fraud have also increased. 				Annual global fraud losses reached $21.8 billion in 2015, according to <a href = "https://nilsonreport.com/upload/content_promo/The_Nilson_Report_10-17-2016.pdf"> The Nilson Report</a>. Hope you feel very lucky if you are a fraud. About every 12 cents per $100 were stolen in the US during the same year. 
+
+			</p>
+			
+			<p>
+				An artificial intelligence has an enormous potential to reduce the financial fraud. Artificial intelligence applications have a great potential to detect and prevent the fraud.
+			</p>
+			
+			<p>
+				Payment Fraud is one of the ideal use cases for deep learning and machine learning.It is now being used successfully for a long time for fraud detection. When the customers get any call, text email or in-app messages from the credit card issuer, asking them for the validation of transaction or informing them about the fraud on their credit card, they might not even realize that behind such an exceptional customer service, there are set of algorithms.
+			</p>
+			<p>
+				For this problem, we train an Autoencoder Neural Network in unsupervised fashion for Anomaly Detection in credit card transaction data. The trained model is evaluated on pre-labeled and anonymized dataset.
+			</p>
+			<h2>Setup</h2>
+			<p>
+				We are using TensorFlow and Keras. Let’s begin:
+			</p>
+		
+			<div align="left" style="background-color:lightblue; padding-left:10px" style="overflow-y:hidden;overflow-x:scroll">
+				<code>
+					import pandas as pd<br/>
+					import numpy as np<br/>
+					import pickle<br/>
+					import matplotlib.pyplot as plt<br/>
+					from scipy import stats<br/>
+					import tensorflow as tf<br/>
+					import seaborn as sns<br/>
+					from pylab import rcParams<br/>
+					from sklearn.model_selection import train_test_split<br/>
+					from keras.models import Model, load_model<br/>
+					from keras.layers import Input, Dense<br/>
+					from keras.callbacks import ModelCheckpoint, TensorBoard<br/>
+					from keras import regularizers<br/>
+
+				</code>
+			</div>
+			<h2>Read the data</h2>
+			<p>
+			Source: The dataset download from <a href="https://www.kaggle.com/mlg-ulb/creditcardfraud">kaggle</a>
+			</p>
+			<p>
+				All the variables are numerical in the dataset. The data is transformed using PCA transformation(s) due to privacy reasons. The two features Time and Amount are not changed. Time contains the seconds elapsed between each transaction and the first transaction in the dataset.
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					df = pd.read_csv("creditcard.csv")<br/>
+				</code>
+			</div>
+			<h2>Data Exploration</h2>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					df.shape<br/>
+				
+				</code>
+			</div>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					(284807, 31)<br/>
+				</code>
+			</div>
+			<p>
+				31 columns, 2 of which are Time and Amount. The rest are output from the PCA transformation. Let's check for missing values:
+			</p>
+			<div align="center" >
+				<center><img src="a-1.png" width="500" height="280" /></center>
+			</div>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					print('No Frauds:', round(df['Class'].value_counts()[0]/len(df) * 100,2), '% ') <br/>
+					print('Frauds:', round(df['Class'].value_counts()[1]/len(df) * 100,2), '% ')
+				</code>
+			</div><br/>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				
+				<code align="left">
+					No Frauds: 99.83 % <br/>
+					Frauds: 0.17 % 
+				</code>
+			</div>
+			<p>
+				By observing the data, the biggest challenge of this problem is that the target is highly imbalanced as only 0.17 % cases are fraud transactions. But the advantage of the representation learning approach is that it is still able to handle such imbalance nature of the problems. We will look how. For our use-case let's take only about 1000 rows of non-fraud transactions.		  
+			
+			</p>	
+			<p>
+				How different are the amount of money used in different transaction classes?
+			</p>
+			<div align="left" style=" padding-left:10px" >
+				<code align="left">
+					frauds = df[df.Class == 1]<br/>
+					normal = df[df.Class == 0]<br/>
+					frauds.Amount.describe()<br/>
+					
+				</code>
+			</div><br/>
+			<div align="left" style="padding-left:10px" >
+				<code align="left">
+					count     492.000000<br/>
+					mean      122.211321<br/>
+					std       256.683288<br/>
+					min         0.000000<br/>
+					25%         1.000000<br/>
+					50%         9.250000<br/>
+					75%       105.890000<br/>
+					max      2125.870000<br/>
+					Name: Amount, dtype: float64
+				</code>
+			</div><br/>
+			<div align="left" style="padding-left:10px" >
+				<code align="left">
+					normal.Amount.describe()<br/>					
+				</code>
+			</div><br/>
+			<div align="left" style="padding-left:10px" >
+				<code align="left">
+					count    284315.000000<br/>
+					mean         88.291022<br/>
+					std         250.105092<br/>
+					min           0.000000<br/>
+					25%           5.650000<br/>
+					50%          22.000000<br/>
+					75%          77.050000<br/>
+					max       25691.160000<br/>
+					Name: Amount, dtype: float64
+				</code>
+			</div>
+			<p>
+				Graphical representation of amount per transaction by class
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)<br/>
+					f.suptitle('Amount per transaction by class')<br/>
+
+					bins = 50<br/>
+
+					ax1.hist(frauds.Amount, bins = bins)<br/>
+					ax1.set_title('Fraud')<br/>
+
+					ax2.hist(normal.Amount, bins = bins)<br/>
+					ax2.set_title('Normal')<br/>
+
+
+					plt.xlabel('Amount ($)')<br/>
+					plt.ylabel('Number of Transactions')<br/>
+					plt.xlim((0, 20000))<br/>
+					plt.yscale('log')<br/>
+					plt.show()<br/>
+
+				</code>
+			</div>
+			<div align="center" >
+				<center><img src="am.PNG" width="500" height="280" /></center>
+			</div>
+			<p>
+				 Graphical representation of time of transaction vs amount by class
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)<br/>
+					f.suptitle('Time of transaction vs Amount by class')<br/>
+
+					ax1.scatter(frauds.Time, frauds.Amount)<br/>
+					ax1.set_title('Fraud')<br/>
+
+					ax2.scatter(normal.Time, normal.Amount)<br/>
+					ax2.set_title('Normal')<br/>
+					#fig=plt.figure(2)<br/>
+					plt.xlabel('Time (in Seconds)')<br/>
+					plt.ylabel('Amount')<br/>
+					plt.show()<br/>
+
+				</code>
+			</div>
+			<div align="center" >
+				<center><img src="ti.PNG" width="500" height="280" /></center>
+			</div>
+			<h2>Autoencoders</h2>
+			<p>
+				 Autoencoders are a special type of neural network architectures in which the output is same as the input. Autoencoders are trained in an unsupervised manner in order to learn the exteremely low level repersentations of the input data. These low level features are then deformed back to project the actual data. An autoencoder is a regression task where the network is asked to predict its input (in other words, model the identity function). These networks has a tight bottleneck of a few neurons in the middle, forcing them to create effective representations that compress the input into a low-dimensional code that can be used by the decoder to reproduce the original input.
+			</p>
+			<p>
+				Encoder: this part of the network compresses or downsamples the input into a fewer number of bits. The space represented by these fewer number of bits is often called the latent-space or bottleneck. The bottleneck is also called the “maximum point of compression” since at this point the input is compressed the maximum. These compressed bits that represent the original input are together called an “encoding” of the input.
+			</p>
+			<p>
+				Decoder: this part of the network tries to reconstruct the input using only the encoding of the input. When the decoder is able to reconstruct the input exactly as it was fed to the encoder, you can say that the encoder is able to produce the best encodings for the input with which the decoder is able to reconstruct well!
+			</p>
+			<h4>Reconstruction error</h4>
+			<p>
+				We optimize the parameters of our Autoencoder model in such way that a special kind of error - reconstruction error is minimized. In practice, the traditional squared error is often used:
+			</p>
+			
+			<p>
+				L(x,x') = ||x - x'||^2
+			</p>
+			
+			<div align="center" >
+				<left><img src="ae.png" width="500" height="280" /></left>
+			</div>
+			
+			
+			
+			
+			<h2>Preparing the data</h2>
+			<p>
+				First, let's drop the Time column (not going to use it) and use the scikit's StandardScaler on the Amount. The scaler removes the mean and scales the values to unit variance:
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					data = df.drop(['Time'], axis=1)<br/>
+					data['Amount'] = StandardScaler().fit_transform(data['Amount'].values.reshape(-1, 1))<br/>
+
+				</code>
+			</div>
+			<h4>Splitting the data in train and test</h4>
+			<p>
+				Training our Autoencoder is gonna be a bit different from what we are used to. Let’s say you have a dataset containing a lot of non fraudulent transactions at hand. You want to detect any anomaly on new transactions. We will create this situation by training our model on the normal transactions, only. Reserving the correct class on the test set will give us a way to evaluate the performance of our model. We will reserve 20% of our data for testing:
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					X_train, X_test = train_test_split(data, test_size=0.2, random_state=RANDOM_SEED)<br/>
+					X_train = X_train[X_train.Class == 0]<br/>
+					X_train = X_train.drop(['Class'], axis=1)<br/>
+					y_test = X_test['Class']<br/>
+					X_test = X_test.drop(['Class'], axis=1)<br/>
+					X_train = X_train.values<br/>
+					X_test = X_test.values<br/>
+				</code>
+			</div>
+			<h2>Building the model</h2>
+			<p>
+				Models in Keras are defined as a sequence of layers.
+			</p>
+			<p>
+				Autoencoder uses 4 fully connected layers with 14, 7, 7 and 29 neurons respectively. The first two layers are used for our encoder, the last two go for the decoder. Additionally, L1 regularization will be used during training:
+			</p>
+			<p>
+				We can specify the number of neurons in the layer as the first argument, the initialization method as the second argument as int and specify the activation function using the activation argument.
+			</p>
+			<p>
+				We can use ReLU(Rectified Leaniear Unit) activation function. It is defined as y = max(0, x). The range of this activation function is (0, inf), and it’s not differentiable at zero. As the gradient function is always equal to 1, it allows us to pass the maximum amount of the error through the network during the back-propagation phase.
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					input_dim = X_train.shape[1]<br/>
+					encoding_dim = 14<br/>
+					input_layer = Input(shape=(input_dim, ))<br/>
+					encoder = Dense(encoding_dim, activation="relu",activity_regularizer=regularizers.l1(10e-5))(input_layer)<br/>
+					encoder = Dense(int(encoding_dim / 2), activation="relu")(encoder)<br/>
+					decoder = Dense(int(encoding_dim / 2), activation='relu')(encoder)<br/>
+					decoder = Dense(input_dim, activation='relu')(decoder)<br/>
+					autoencoder = Model(inputs=input_layer, outputs=decoder)<br/>
+				</code>
+			</div>
+			<h4>Compiling the model </h4>
+			
+			<p>
+				Let's train our model for 150 epochs with a batch size of 42 samples and save the best performing model to a file. The batch size is the number of data in each portion. After we are done with all batches, we complete a single epoch. In order to have better accuracy, we should train data for large no. of epochs. In other words, Epoch describes the number of times the algorithm sees the entire data set. So, each time the algorithm has seen all samples in the dataset, an epoch has completed. The ModelCheckpoint provided by Keras is really handy for such tasks. Additionally, the training progress will be exported in a format that TensorBoard understands.
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					nb_epoch = 150<br/>
+					batch_size = 42<br/>
+					autoencoder.compile(optimizer='adam', loss='mean_squared_error', <br/>
+                   								 metrics=['accuracy'])<br/>
+					checkpointer = ModelCheckpoint(filepath="model.h5", verbose=0,<br/>
+                               							save_best_only=True)<br/>
+					tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,<br/>
+                          							write_graph=True, write_images=True)<br/>
+					history = autoencoder.fit(X_train, X_train,epochs=nb_epoch,<br/>
+                    								batch_size=batch_size,<br/>
+                    								shuffle=True,<br/>
+                    								validation_data=(X_test, X_test),<br/>
+                    								verbose=1,<br/>
+                    			callbacks=[checkpointer, tensorboard]).history<br/>
+					autoencoder = load_model('model.h5')<br/>
+				</code>
+			</div>
+			<h2>Model Evaluation</h2>
+			<p>
+				let us try to plot model loss and accuracy using matplot lib
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					plt.plot(history['loss'])<br/>
+					plt.plot(history['val_loss'])<br/>
+					plt.title('model loss')<br/>
+					plt.ylabel('loss')<br/>
+					plt.xlabel('epoch')<br/>
+					plt.legend(['train', 'test'], loc='upper right')<br/>
+				</code>
+			</div>
+			<div align="center" >
+				<center><img src="ev.PNG" width="500" height="280" /></center>
+			</div>
+			<p>
+				The reconstruction error on our training and test data seems to converge nicely. Is it low enough? Let’s have a closer look at the error distribution:
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					predictions = autoencoder.predict(X_test)<br/>
+					mse = np.mean(np.power(X_test - predictions, 2), axis=1)<br/>
+					error_df = pd.DataFrame({'reconstruction_error': mse, 'true_class': y_test})<br/>
+					error_df.describe()<br/>
+				</code>
+			</div><br/>
+			<div align="left" style="padding-left:10px" >
+				<code align="left">
+						reconstruction_error 	true_class<br/>
+					count 	56962.000000 	56962.000000<br/>
+					mean 	0.734931 	0.001720<br/>
+					std 	3.393803 	0.041443<br/>
+					min 	0.046977 	0.000000<br/>
+					25% 	0.243277 	0.000000<br/>
+					50% 	0.385617 	0.000000<br/>
+					75% 	0.612414 	0.000000<br/>
+					max 	265.500903 	1.000000<br/>
+				</code>
+			</div><br/>
+			<h4>Reconstruction error without fraud</h4>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					fig = plt.figure()<br/>
+					ax = fig.add_subplot(111)<br/>
+					normal_error_df = error_df[(error_df['true_class']== 0) & (error_df['reconstruction_error'] < 10)]<br/>
+					_ = ax.hist(normal_error_df.reconstruction_error.values, bins=10)<br/>
+				</code>
+			</div><br/>
+			<div align="center" >
+				<center><img src="we0.PNG" width="500" height="280" /></center>
+			</div>
+			<h4>Reconstruction error with fraud</h4>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					fig = plt.figure()<br/>
+					ax = fig.add_subplot(111)<br/>
+					fraud_error_df = error_df[error_df['true_class'] == 1]<br/>
+					_ = ax.hist(fraud_error_df.reconstruction_error.values, bins=10)<br/>
+				</code>
+			</div><br/>
+			<div align="center" >
+				<center><img src="we.PNG" width="500" height="280" /></center>
+			</div>
+			<h4>ROC curves</h4>
+			<p>
+				ROC curves are very useful tool for understanding the performance of binary classifiers. However, our case is a bit out of the ordinary. We have a very imbalanced dataset. Nonetheless, let’s have a look at our ROC curve:
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					from sklearn.metrics import (confusion_matrix, precision_recall_curve, auc,<br/>
+                             				roc_curve, recall_score, classification_report, f1_score,<br/>
+                            				 precision_recall_fscore_support)<br/>
+				</code>
+			</div><br/>
+			
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					fpr, tpr, thresholds = roc_curve(error_df.true_class, error_df.reconstruction_error)<br/>
+					roc_auc = auc(fpr, tpr)<br/>
+					plt.title('Receiver Operating Characteristic')<br/>
+					plt.plot(fpr, tpr, label='AUC = %0.4f'% roc_auc)<br/>
+					plt.legend(loc='lower right')<br/>
+					plt.plot([0,1],[0,1],'r--')<br/>
+					plt.xlim([-0.001, 1])<br/>
+					plt.ylim([0, 1.001])<br/>
+					plt.ylabel('True Positive Rate')<br/>
+					plt.xlabel('False Positive Rate')<br/>
+					plt.show()<br/>
+				</code>
+			</div><br/>
+			<div align="center" >
+				<center><img src="roc.PNG" width="500" height="280" /></center>
+			</div>
+					
+			
+			
+			
+			
+			<h4>Precision vs Recall</h4>
+			<div align="center" >
+				<center><img src="pr.PNG" width="500" height="280" /></center>
+			</div>
+			<p>
+				Often, we think that precision and recall both indicate accuracy of the model. While that is somewhat true, there is a deeper, distinct meaning of each of these terms. Precision means the percentage of your results which are relevant. On the other hand, recall refers to the percentage of total relevant results correctly classified by your algorithm.
+			</p>	
+			<p>
+				Let's return to our example from Information Retrieval. High recall but low precision means many results, most of which has low or no relevancy. When precision is high but recall is low we have the opposite - few returned results with very high relevancy. Ideally, you would want high precision and high recall - many results with that are highly relevant.
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					precision, recall, th = precision_recall_curve(error_df.true_class, error_df.reconstruction_error)<br/>
+					plt.plot(recall, precision, 'b', label='Precision-Recall curve')<br/>
+					plt.title('Recall vs Precision')<br/>
+					plt.xlabel('Recall')<br/>
+					plt.ylabel('Precision')<br/>
+					plt.show()<br/>
+				</code>
+			</div>
+			<div align="center" >
+				<center><img src="pp.PNG" width="500" height="280" /></center>
+			</div>
+			<p>
+				A high area under the curve represents both high recall and high precision, where high precision relates to a low false positive rate, and high recall relates to a low false negative rate. High scores for both show that the classifier is returning accurate results (high precision), as well as returning a majority of all positive results (high recall).
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					plt.plot(th, precision[1:], 'b', label='Threshold-Precision curve')<br/>
+					plt.title('Precision for different threshold values')<br/>
+					plt.xlabel('Threshold')<br/>
+					plt.ylabel('Precision')<br/>
+					plt.show()<br/>
+				</code>
+			</div>
+			<div align="center" >
+				<center><img src="pt.PNG" width="500" height="280" /></center>
+			</div>
+			<p>
+				You can see that as the reconstruction error increases our precision rises as well. Let's have a look at the recall:
+
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					plt.plot(th, recall[1:], 'b', label='Threshold-Recall curve')<br/>
+					plt.title('Recall for different threshold values')<br/>
+					plt.xlabel('Reconstruction error')<br/>
+					plt.ylabel('Recall')<br/>
+					plt.show()<br/>
+				</code>
+			</div>
+			
+			<div align="center" >
+				<center><img src="rect.PNG" width="500" height="280" /></center>
+			</div>
+			
+			<p>
+				Here, we have the exact opposite situation. As the reconstruction error increases the recall decreases.
+			</p>
+			
+			
+			
+			
+			<h2>Model Prediction</h2>
+			<p>
+				Our model is a bit different this time. It doesn’t know how to predict new values. But we don’t need that. In order to predict whether or not a new/unseen transaction is normal or fraudulent, we’ll calculate the reconstruction error from the transaction data itself. If the error is larger than a predefined threshold, we’ll mark it as a fraud (since our model should have a low error on normal transactions). Let’s pick that value:
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					groups = error_df.groupby('true_class')<br/>
+					fig, ax = plt.subplots()<br/>
+					for name, group in groups:<br/>
+    						ax.plot(group.index, group.reconstruction_error, marker='o', ms=3.5, linestyle='', <br/>
+            					label= "Fraud" if name == 1 else "Normal")<br/>
+				ax.hlines(threshold, ax.get_xlim()[0], ax.get_xlim()[1], colors="r", zorder=100, label='Threshold')<br/>
+					ax.legend()<br/>
+					plt.title("Reconstruction error for different classes")<br/>
+					plt.ylabel("Reconstruction error")<br/>
+					plt.xlabel("Data point index")<br/>
+					plt.show()<br/>
+				</code>
+			</div>
+			<div align="center" >
+				<center><img src="prd.PNG" width="500" height="280" /></center>
+			</div>
+			<h4>Confusion matrix</h4>
+			<p>
+				A confusion matrix is a table that is often used to describe the performance of a classification model (or "classifier") on a set of test data for which the true values are known. The confusion matrix itself is relatively simple to understand, but the related terminology can be confusing.
+			</p>
+			<div align="left" style="background-color:lightblue; padding-left:10px" >
+				<code align="left">
+					y_pred = [1 if e > threshold else 0 for e in error_df.reconstruction_error.values]<br/>
+					conf_matrix = confusion_matrix(error_df.true_class, y_pred)<br/>
+
+					plt.figure(figsize=(12, 12))<br/>
+					sns.heatmap(conf_matrix, xticklabels=LABELS, yticklabels=LABELS, annot=True, fmt="d")<br/>
+					plt.title("Confusion matrix")<br/>
+					plt.ylabel('True class')<br/>
+					plt.xlabel('Predicted class')<br/>
+					plt.show()<br/>
+				</code>
+			</div>
+			
+			
+			<div align="center" >
+				<center><img src="co.PNG" width="500" height="280" /></center>
+			</div>
+			<p>
+				Our model seems to catch a lot of the fraudulent cases. Of course, there is a catch (see what I did there?). The number of normal transactions classified as frauds is really high. Is this really a problem? Probably it is. You might want to increase or decrease the value of the threshold, depending on the problem. That one is up to you.
+			</p>
+			<h2>Summary</h2>
+			<p>
+				We are created a very simple Deep Autoencoder in Keras that can reconstruct what non fraudulent transactions looks like. Our model is correctly predicting almost 71% True positive as positive data points meaning true non-fraudulent(normal) transaction predicted as a non-fraudulent transaction.
+			</p>
+			
+			<h2>References</h2>
+				<ul>
+					<li><a href=http://ufldl.stanford.edu/tutorial/unsupervised/Autoencoders/">Autoencoders</a></li>
+					<li><a href="http://ufldl.stanford.edu/tutorial/unsupervised/Autoencoders/"> Autoencoders in keras</a></li>
+				</ul>
+			
+		</div>
+	</body>
+</html>
